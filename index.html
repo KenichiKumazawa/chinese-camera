@@ -222,6 +222,30 @@
     const pinyinEl = document.getElementById('pinyin');
     const japaneseEl = document.getElementById('japanese');
 
+    // ===== 状態管理 =====
+    const COOLDOWN_MS = 5000;
+    const lastSpoken = {};
+    const ttsEnabled = 'speechSynthesis' in window;
+
+    // ===== エラー表示 =====
+    const errorOverlay = document.getElementById('error-overlay');
+    const errorMessage = document.getElementById('error-message');
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorOverlay.classList.add('show');
+    }
+
+    // ===== 発音 =====
+    function speak(text) {
+      if (!ttsEnabled) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'zh-CN';
+      utter.rate = 0.8;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
     // ===== バウンディングボックス描画 =====
     function drawBoxes(predictions) {
       canvas.width = video.offsetWidth;
@@ -248,37 +272,55 @@
       japaneseEl.textContent = entry.ja;
     }
 
-    // ===== カメラ起動 =====
+    // ===== カメラ起動（エラー処理あり） =====
     async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      video.srcObject = stream;
-      await new Promise(resolve => { video.onloadedmetadata = resolve; });
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = stream;
+        await new Promise(resolve => { video.onloadedmetadata = resolve; });
+      } catch (e) {
+        showError('カメラの使用を許可してください。\nブラウザの設定からカメラを許可した後、ページを再読み込みしてください。');
+        throw e;
+      }
     }
 
-    // ===== 認識ループ（音声なし・表示のみ） =====
+    // ===== 認識ループ（TTS + クールダウン込み） =====
     function startDetectionLoop(model) {
       setInterval(async () => {
         if (video.readyState < 2) return;
         const predictions = await model.detect(video);
         drawBoxes(predictions);
         if (predictions.length === 0) return;
+
         const best = predictions.reduce((a, b) => a.score > b.score ? a : b);
         const entry = dictionary[best.class];
         if (!entry) return;
+
+        const now = Date.now();
+        if (lastSpoken[best.class] && (now - lastSpoken[best.class]) < COOLDOWN_MS) return;
+
+        lastSpoken[best.class] = now;
         updateInfoPanel(entry);
+        speak(entry.zh);
       }, 500);
     }
 
-    // ===== 初期化 =====
+    // ===== 初期化（エラー処理あり） =====
     async function init() {
-      loadingText.textContent = 'モデルを読み込み中...';
-      const model = await cocoSsd.load();
-      loadingText.textContent = 'カメラを起動中...';
-      await startCamera();
-      loadingOverlay.classList.add('hidden');
-      startDetectionLoop(model);
+      try {
+        loadingText.textContent = 'モデルを読み込み中...';
+        const model = await cocoSsd.load();
+        loadingText.textContent = 'カメラを起動中...';
+        await startCamera();
+        loadingOverlay.classList.add('hidden');
+        startDetectionLoop(model);
+      } catch (e) {
+        if (!errorOverlay.classList.contains('show')) {
+          showError('読み込みに失敗しました。\nページを再読み込みしてください。');
+        }
+      }
     }
 
     init();
