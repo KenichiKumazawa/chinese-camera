@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中国語カメラ学習</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* カメラエリア */
+    #camera-area {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* 情報パネル（画面下部） */
+    #info-panel {
+      background: rgba(0, 0, 0, 0.88);
+      padding: 20px 16px;
+      text-align: center;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+    #chinese-char {
+      font-size: 52px;
+      font-weight: bold;
+      line-height: 1;
+    }
+    #pinyin {
+      font-size: 22px;
+      color: #88ccff;
+      letter-spacing: 0.05em;
+    }
+    #japanese {
+      font-size: 16px;
+      color: #aaa;
+    }
+
+    /* ローディングオーバーレイ */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+    #loading-overlay.hidden { display: none; }
+    #loading-icon { font-size: 56px; }
+    #loading-text { font-size: 16px; color: #ccc; }
+
+    /* エラーオーバーレイ */
+    #error-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 24px;
+    }
+    #error-overlay.show { display: flex; }
+    #error-message {
+      font-size: 17px;
+      text-align: center;
+      color: #ff8888;
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ローディング画面 -->
+  <div id="loading-overlay">
+    <div id="loading-icon">🈶</div>
+    <div id="loading-text">モデルを読み込み中...</div>
+  </div>
+
+  <!-- エラー画面 -->
+  <div id="error-overlay">
+    <div id="error-message"></div>
+  </div>
+
+  <!-- カメラ映像エリア -->
+  <div id="camera-area">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- 中国語表示パネル -->
+  <div id="info-panel">
+    <div id="chinese-char">—</div>
+    <div id="pinyin"></div>
+    <div id="japanese">カメラに物をかざしてください</div>
+  </div>
+
+</body>
+</html>
