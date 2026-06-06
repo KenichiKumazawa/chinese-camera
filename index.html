@@ -126,5 +126,162 @@
     <div id="japanese">カメラに物をかざしてください</div>
   </div>
 
+
+  <script>
+    // ===== 辞書（COCO-SSD 80語） =====
+    const dictionary = {
+      'person':         { zh: '人',          pinyin: 'rén',                 ja: '人' },
+      'bicycle':        { zh: '自行车',       pinyin: 'zì xíng chē',        ja: '自転車' },
+      'car':            { zh: '汽车',         pinyin: 'qì chē',              ja: '車' },
+      'motorcycle':     { zh: '摩托车',       pinyin: 'mó tuō chē',         ja: 'バイク' },
+      'airplane':       { zh: '飞机',         pinyin: 'fēi jī',              ja: '飛行機' },
+      'bus':            { zh: '公共汽车',     pinyin: 'gōng gòng qì chē',   ja: 'バス' },
+      'train':          { zh: '火车',         pinyin: 'huǒ chē',             ja: '電車' },
+      'truck':          { zh: '卡车',         pinyin: 'kǎ chē',              ja: 'トラック' },
+      'boat':           { zh: '船',           pinyin: 'chuán',               ja: '船' },
+      'traffic light':  { zh: '交通灯',       pinyin: 'jiāo tōng dēng',     ja: '信号機' },
+      'fire hydrant':   { zh: '消防栓',       pinyin: 'xiāo fáng shuān',    ja: '消火栓' },
+      'stop sign':      { zh: '停止标志',     pinyin: 'tíng zhǐ biāo zhì',  ja: '停止標識' },
+      'parking meter':  { zh: '停车计时器',   pinyin: 'tíng chē jì shí qì', ja: 'パーキングメーター' },
+      'bench':          { zh: '长椅',         pinyin: 'cháng yǐ',            ja: 'ベンチ' },
+      'bird':           { zh: '鸟',           pinyin: 'niǎo',                ja: '鳥' },
+      'cat':            { zh: '猫',           pinyin: 'māo',                 ja: '猫' },
+      'dog':            { zh: '狗',           pinyin: 'gǒu',                 ja: '犬' },
+      'horse':          { zh: '马',           pinyin: 'mǎ',                  ja: '馬' },
+      'sheep':          { zh: '羊',           pinyin: 'yáng',                ja: '羊' },
+      'cow':            { zh: '牛',           pinyin: 'niú',                 ja: '牛' },
+      'elephant':       { zh: '大象',         pinyin: 'dà xiàng',            ja: '象' },
+      'bear':           { zh: '熊',           pinyin: 'xióng',               ja: 'クマ' },
+      'zebra':          { zh: '斑马',         pinyin: 'bān mǎ',              ja: 'シマウマ' },
+      'giraffe':        { zh: '长颈鹿',       pinyin: 'cháng jǐng lù',      ja: 'キリン' },
+      'backpack':       { zh: '背包',         pinyin: 'bèi bāo',             ja: 'リュック' },
+      'umbrella':       { zh: '雨伞',         pinyin: 'yǔ sǎn',              ja: '傘' },
+      'handbag':        { zh: '手提包',       pinyin: 'shǒu tí bāo',        ja: 'ハンドバッグ' },
+      'tie':            { zh: '领带',         pinyin: 'lǐng dài',            ja: 'ネクタイ' },
+      'suitcase':       { zh: '行李箱',       pinyin: 'xíng lǐ xiāng',      ja: 'スーツケース' },
+      'frisbee':        { zh: '飞盘',         pinyin: 'fēi pán',             ja: 'フリスビー' },
+      'skis':           { zh: '滑雪板',       pinyin: 'huá xuě bǎn',        ja: 'スキー板' },
+      'snowboard':      { zh: '单板滑雪',     pinyin: 'dān bǎn huá xuě',    ja: 'スノーボード' },
+      'sports ball':    { zh: '球',           pinyin: 'qiú',                 ja: 'ボール' },
+      'kite':           { zh: '风筝',         pinyin: 'fēng zheng',          ja: '凧' },
+      'baseball bat':   { zh: '棒球棒',       pinyin: 'bàng qiú bàng',      ja: 'バット' },
+      'baseball glove': { zh: '棒球手套',     pinyin: 'bàng qiú shǒu tào',  ja: 'グローブ' },
+      'skateboard':     { zh: '滑板',         pinyin: 'huá bǎn',             ja: 'スケボー' },
+      'surfboard':      { zh: '冲浪板',       pinyin: 'chōng làng bǎn',     ja: 'サーフボード' },
+      'tennis racket':  { zh: '网球拍',       pinyin: 'wǎng qiú pāi',       ja: 'テニスラケット' },
+      'bottle':         { zh: '瓶子',         pinyin: 'píng zi',             ja: 'ボトル' },
+      'wine glass':     { zh: '葡萄酒杯',     pinyin: 'pú táo jiǔ bēi',     ja: 'ワイングラス' },
+      'cup':            { zh: '杯子',         pinyin: 'bēi zi',              ja: 'コップ' },
+      'fork':           { zh: '叉子',         pinyin: 'chā zi',              ja: 'フォーク' },
+      'knife':          { zh: '刀',           pinyin: 'dāo',                 ja: 'ナイフ' },
+      'spoon':          { zh: '勺子',         pinyin: 'sháo zi',             ja: 'スプーン' },
+      'bowl':           { zh: '碗',           pinyin: 'wǎn',                 ja: 'お椀' },
+      'banana':         { zh: '香蕉',         pinyin: 'xiāng jiāo',         ja: 'バナナ' },
+      'apple':          { zh: '苹果',         pinyin: 'píng guǒ',            ja: 'りんご' },
+      'sandwich':       { zh: '三明治',       pinyin: 'sān míng zhì',        ja: 'サンドイッチ' },
+      'orange':         { zh: '橙子',         pinyin: 'chéng zi',            ja: 'オレンジ' },
+      'broccoli':       { zh: '西兰花',       pinyin: 'xī lán huā',         ja: 'ブロッコリー' },
+      'carrot':         { zh: '胡萝卜',       pinyin: 'hú luó bo',           ja: 'ニンジン' },
+      'hot dog':        { zh: '热狗',         pinyin: 'rè gǒu',              ja: 'ホットドッグ' },
+      'pizza':          { zh: '披萨',         pinyin: 'pī sà',               ja: 'ピザ' },
+      'donut':          { zh: '甜甜圈',       pinyin: 'tián tián quān',      ja: 'ドーナツ' },
+      'cake':           { zh: '蛋糕',         pinyin: 'dàn gāo',             ja: 'ケーキ' },
+      'chair':          { zh: '椅子',         pinyin: 'yǐ zi',               ja: '椅子' },
+      'couch':          { zh: '沙发',         pinyin: 'shā fā',              ja: 'ソファ' },
+      'potted plant':   { zh: '盆栽植物',     pinyin: 'pén zāi zhí wù',     ja: '鉢植え' },
+      'bed':            { zh: '床',           pinyin: 'chuáng',              ja: 'ベッド' },
+      'dining table':   { zh: '餐桌',         pinyin: 'cān zhuō',            ja: 'テーブル' },
+      'toilet':         { zh: '马桶',         pinyin: 'mǎ tǒng',             ja: 'トイレ' },
+      'tv':             { zh: '电视',         pinyin: 'diàn shì',            ja: 'テレビ' },
+      'laptop':         { zh: '笔记本电脑',   pinyin: 'bǐ jì běn diàn nǎo', ja: 'ノートPC' },
+      'mouse':          { zh: '鼠标',         pinyin: 'shǔ biāo',            ja: 'マウス' },
+      'remote':         { zh: '遥控器',       pinyin: 'yáo kòng qì',         ja: 'リモコン' },
+      'keyboard':       { zh: '键盘',         pinyin: 'jiàn pán',            ja: 'キーボード' },
+      'cell phone':     { zh: '手机',         pinyin: 'shǒu jī',             ja: 'スマホ' },
+      'microwave':      { zh: '微波炉',       pinyin: 'wēi bō lú',           ja: '電子レンジ' },
+      'oven':           { zh: '烤箱',         pinyin: 'kǎo xiāng',           ja: 'オーブン' },
+      'toaster':        { zh: '烤面包机',     pinyin: 'kǎo miàn bāo jī',    ja: 'トースター' },
+      'sink':           { zh: '水槽',         pinyin: 'shuǐ cáo',            ja: 'シンク' },
+      'refrigerator':   { zh: '冰箱',         pinyin: 'bīng xiāng',          ja: '冷蔵庫' },
+      'book':           { zh: '书',           pinyin: 'shū',                 ja: '本' },
+      'clock':          { zh: '时钟',         pinyin: 'shí zhōng',           ja: '時計' },
+      'vase':           { zh: '花瓶',         pinyin: 'huā píng',            ja: '花瓶' },
+      'scissors':       { zh: '剪刀',         pinyin: 'jiǎn dāo',            ja: 'ハサミ' },
+      'teddy bear':     { zh: '泰迪熊',       pinyin: 'tài dí xióng',        ja: 'テディベア' },
+      'hair drier':     { zh: '吹风机',       pinyin: 'chuī fēng jī',        ja: 'ドライヤー' },
+      'toothbrush':     { zh: '牙刷',         pinyin: 'yá shuā',             ja: '歯ブラシ' },
+    };
+
+    // ===== DOM要素 =====
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const chineseChar = document.getElementById('chinese-char');
+    const pinyinEl = document.getElementById('pinyin');
+    const japaneseEl = document.getElementById('japanese');
+
+    // ===== バウンディングボックス描画 =====
+    function drawBoxes(predictions) {
+      canvas.width = video.offsetWidth;
+      canvas.height = video.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scaleX = canvas.width / video.videoWidth;
+      const scaleY = canvas.height / video.videoHeight;
+
+      predictions.forEach(pred => {
+        const [x, y, w, h] = pred.bbox;
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(pred.class, x * scaleX + 4, y * scaleY + 16);
+      });
+    }
+
+    // ===== 情報パネル更新 =====
+    function updateInfoPanel(entry) {
+      chineseChar.textContent = entry.zh;
+      pinyinEl.textContent = entry.pinyin;
+      japaneseEl.textContent = entry.ja;
+    }
+
+    // ===== カメラ起動 =====
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      video.srcObject = stream;
+      await new Promise(resolve => { video.onloadedmetadata = resolve; });
+    }
+
+    // ===== 認識ループ（音声なし・表示のみ） =====
+    function startDetectionLoop(model) {
+      setInterval(async () => {
+        if (video.readyState < 2) return;
+        const predictions = await model.detect(video);
+        drawBoxes(predictions);
+        if (predictions.length === 0) return;
+        const best = predictions.reduce((a, b) => a.score > b.score ? a : b);
+        const entry = dictionary[best.class];
+        if (!entry) return;
+        updateInfoPanel(entry);
+      }, 500);
+    }
+
+    // ===== 初期化 =====
+    async function init() {
+      loadingText.textContent = 'モデルを読み込み中...';
+      const model = await cocoSsd.load();
+      loadingText.textContent = 'カメラを起動中...';
+      await startCamera();
+      loadingOverlay.classList.add('hidden');
+      startDetectionLoop(model);
+    }
+
+    init();
+  </script>
 </body>
 </html>
