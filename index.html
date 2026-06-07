@@ -220,6 +220,53 @@
     }
     #speak-btn .btn-icon { font-size: 17px; }
 
+    /* ── Tap ripple ── */
+    .tap-ripple {
+      position: absolute;
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      border: 2px solid var(--amber);
+      margin: -32px 0 0 -32px;
+      pointer-events: none;
+      z-index: 30;
+      animation: ripple-out 0.55s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+    }
+    @keyframes ripple-out {
+      0%   { transform: scale(0.2); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* スキャン中のオーバーレイ */
+    #camera-area.scanning::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(232, 160, 32, 0.06);
+      pointer-events: none;
+      z-index: 15;
+      animation: scan-pulse 0.7s ease-in-out infinite alternate;
+    }
+    @keyframes scan-pulse {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* タップヒント */
+    #tap-hint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      color: rgba(242, 237, 230, 0.38);
+      pointer-events: none;
+      z-index: 20;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
     /* ── Loading overlay ── */
     #loading-overlay {
       position: fixed; inset: 0;
@@ -303,6 +350,7 @@
     </header>
     <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
+    <div id="tap-hint">TAP TO IDENTIFY</div>
   </div>
 
   <!-- Bottom panel -->
@@ -310,7 +358,7 @@
     <div id="word-area">
       <div id="chinese-char">—</div>
       <div id="pinyin"></div>
-      <div id="japanese">カメラに物をかざしてください</div>
+      <div id="japanese">認識したい物をタップしてください</div>
     </div>
     <div id="controls">
       <button id="repeat-btn" disabled title="もう一度聞く">↺</button>
@@ -330,6 +378,7 @@
 
     // ===== DOM =====
     const video          = document.getElementById('video');
+    const cameraArea     = document.getElementById('camera-area');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingLabel   = document.getElementById('loading-label');
     const errorOverlay   = document.getElementById('error-overlay');
@@ -394,61 +443,103 @@
       speak(lastSpokenEntry.zh);
     });
 
-    // ===== ビデオフレームをbase64 JPEGとして取得 =====
-    function captureFrame() {
+    // ===== タップ座標 → ビデオ座標変換（object-fit:cover対応） =====
+    function tapToVideoCoords(tapX, tapY) {
+      const rect = video.getBoundingClientRect();
+      const vW = video.videoWidth  || 1280;
+      const vH = video.videoHeight || 720;
+      const dW = rect.width;
+      const dH = rect.height;
+      const scale = Math.max(dW / vW, dH / vH);
+      const startX = (dW - vW * scale) / 2;
+      const startY = (dH - vH * scale) / 2;
+      return {
+        x: (tapX - startX) / scale,
+        y: (tapY - startY) / scale,
+        vW, vH
+      };
+    }
+
+    // ===== タップ位置を中心にフレームをトリミングしてbase64取得 =====
+    function captureFrameAt(tapX, tapY) {
+      const { x: vx, y: vy, vW, vH } = tapToVideoCoords(tapX, tapY);
+      // タップ位置を中心に50%の領域を切り出す
+      const cropW = vW * 0.55;
+      const cropH = vH * 0.55;
+      let sx = Math.max(0, Math.min(vx - cropW / 2, vW - cropW));
+      let sy = Math.max(0, Math.min(vy - cropH / 2, vH - cropH));
       const cvs = document.createElement('canvas');
-      cvs.width  = 640;
-      cvs.height = 480;
-      cvs.getContext('2d').drawImage(video, 0, 0, cvs.width, cvs.height);
-      return cvs.toDataURL('image/jpeg', 0.7).split(',')[1];
+      cvs.width = 480; cvs.height = 360;
+      cvs.getContext('2d').drawImage(video, sx, sy, cropW, cropH, 0, 0, 480, 360);
+      return cvs.toDataURL('image/jpeg', 0.8).split(',')[1];
     }
 
-    // ===== Gemini API で物体認識 =====
-    async function classifyWithGemini() {
-      if (video.readyState < 2 || isRequesting) return;
-      isRequesting = true;
-      statusDot.classList.add('live');
+    // ===== タップリップルを表示 =====
+    function showRipple(x, y) {
+      const ripple = document.createElement('div');
+      ripple.className = 'tap-ripple';
+      ripple.style.left = x + 'px';
+      ripple.style.top  = y + 'px';
+      cameraArea.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    }
 
-      try {
-        const base64 = captureFrame();
-        const prompt =
-          'この画像に写っている最も目立つ物体や食べ物を1つ特定してください。\n' +
-          '必ず以下のJSONのみで返答してください（前後に説明文不要）：\n' +
-          '{"zh":"簡体字中国語","pinyin":"声調記号付きピンイン（スペース区切り）","ja":"日本語名"}\n' +
-          '物体を特定できない場合は {"zh":"","pinyin":"","ja":""} を返してください。';
+    // ===== Gemini API で物体認識（タップ座標付き） =====
+    async function classifyWithGemini(base64) {
+      const prompt =
+        'この画像の中央に写っている物体・食べ物・植物などを1つ特定してください。\n' +
+        '必ず以下のJSONのみで返答してください（前後の説明文は不要）：\n' +
+        '{"zh":"簡体字中国語","pinyin":"声調記号付きピンイン（スペース区切り）","ja":"日本語名"}\n' +
+        '特定できない場合は {"zh":"","pinyin":"","ja":""} を返してください。';
 
-        const res = await fetch(GEMINI_URL(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [
-              { text: prompt },
-              { inline_data: { mime_type: 'image/jpeg', data: base64 } }
-            ]}],
-            generationConfig: { temperature: 0, maxOutputTokens: 80 }
-          })
-        });
+      const res = await fetch(GEMINI_URL(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { text: prompt },
+            { inline_data: { mime_type: 'image/jpeg', data: base64 } }
+          ]}],
+          generationConfig: { temperature: 0, maxOutputTokens: 80 }
+        })
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const match = text.match(/\{[^}]+\}/);
+      if (match) return JSON.parse(match[0]);
+      return null;
+    }
 
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-        const match = text.match(/\{[^}]+\}/);
-        if (match) {
-          const entry = JSON.parse(match[0]);
+    // ===== タップハンドラー =====
+    function setupTapHandler() {
+      cameraArea.addEventListener('click', async (e) => {
+        if (isRequesting) return;
+        // ボタン類はスルー
+        if (e.target.closest('button, #app-header')) return;
+
+        const rect = cameraArea.getBoundingClientRect();
+        const tapX = e.clientX - rect.left;
+        const tapY = e.clientY - rect.top;
+
+        showRipple(tapX, tapY);
+        isRequesting = true;
+        cameraArea.classList.add('scanning');
+        statusDot.classList.add('live');
+
+        try {
+          const base64 = captureFrameAt(tapX, tapY);
+          const entry  = await classifyWithGemini(base64);
           updatePanel(entry);
+        } catch (err) {
+          console.warn('Gemini error:', err);
+          japaneseEl.textContent = '認識できませんでした';
+        } finally {
+          isRequesting = false;
+          cameraArea.classList.remove('scanning');
+          if (!currentEntry) statusDot.classList.remove('live');
         }
-        if (!currentEntry) statusDot.classList.remove('live');
-      } catch (e) {
-        console.warn('Gemini API error:', e);
-        statusDot.classList.remove('live');
-      } finally {
-        isRequesting = false;
-      }
-    }
-
-    // ===== 認識ループ（2秒ごとにGemini呼び出し） =====
-    function startDetectionLoop() {
-      setInterval(classifyWithGemini, 2000);
+      });
     }
 
     // ===== カメラ起動 =====
@@ -491,7 +582,7 @@
         loadingLabel.textContent = 'カメラを起動中...';
         await startCamera();
         loadingOverlay.classList.add('hidden');
-        startDetectionLoop();
+        setupTapHandler();
       } catch (e) {
         if (!errorOverlay.classList.contains('show')) {
           showError('読み込みに失敗しました。\nページを再読み込みしてください。');
