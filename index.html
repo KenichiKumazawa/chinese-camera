@@ -375,10 +375,9 @@
   </div>
 
   <script>
-    // ===== OpenAI API 設定 =====
-    // APIキーはlocalStorageに保存（コードには埋め込まない）
+    // ===== Groq API 設定（Llama 3.2 Vision・無料） =====
     let OPENAI_API_KEY = localStorage.getItem('openai_api_key') || '';
-    const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+    const OPENAI_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
     // ===== DOM =====
     const video          = document.getElementById('video');
@@ -504,7 +503,7 @@
           'Authorization': `Bearer ${OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'llama-3.2-11b-vision-preview',
           messages: [{
             role: 'user',
             content: [
@@ -605,7 +604,7 @@
     // ===== APIキー入力プロンプト =====
     function promptForApiKey() {
       const key = window.prompt(
-        'OpenAI APIキーを入力してください。\n（sk-proj-... で始まるキー）\n\n一度入力すると端末に保存され、次回から不要です。'
+        'Groq APIキーを入力してください。\n（gsk_... で始まるキー）\n\n一度入力すると端末に保存され、次回から不要です。'
       );
       if (key && key.trim()) {
         OPENAI_API_KEY = key.trim();
