@@ -375,11 +375,10 @@
   </div>
 
   <script>
-    // ===== Gemini API 設定 =====
+    // ===== OpenAI API 設定 =====
     // APIキーはlocalStorageに保存（コードには埋め込まない）
-    let GEMINI_API_KEY = localStorage.getItem('gemini_api_key') || '';
-    const GEMINI_URL = () =>
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    let OPENAI_API_KEY = localStorage.getItem('openai_api_key') || '';
+    const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
     // ===== DOM =====
     const video          = document.getElementById('video');
@@ -490,31 +489,42 @@
       setTimeout(() => ripple.remove(), 600);
     }
 
-    // ===== Gemini API で物体認識（タップ座標付き） =====
-    async function classifyWithGemini(base64) {
+    // ===== OpenAI GPT-4o-mini で物体認識 =====
+    async function classifyWithOpenAI(base64) {
       const prompt =
         'この画像の中央に写っている物体・食べ物・植物などを1つ特定してください。\n' +
         '必ず以下のJSONのみで返答してください（前後の説明文は不要）：\n' +
         '{"zh":"簡体字中国語","pinyin":"声調記号付きピンイン（スペース区切り）","ja":"日本語名"}\n' +
         '特定できない場合は {"zh":"","pinyin":"","ja":""} を返してください。';
 
-      const res = await fetch(GEMINI_URL(), {
+      const res = await fetch(OPENAI_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
         body: JSON.stringify({
-          contents: [{ parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64 } }
-          ]}],
-          generationConfig: { temperature: 0, maxOutputTokens: 80 }
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: {
+                  url: `data:image/jpeg;base64,${base64}`,
+                  detail: 'low'
+              }}
+            ]
+          }],
+          max_tokens: 100,
+          temperature: 0
         })
       });
       if (!res.ok) {
         const errBody = await res.text().catch(() => '');
-        throw new Error(`API ${res.status}: ${errBody.slice(0, 80)}`);
+        throw new Error(`API ${res.status}: ${errBody.slice(0, 100)}`);
       }
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const text = data.choices?.[0]?.message?.content ?? '';
       const match = text.match(/\{[^}]+\}/);
       if (match) return JSON.parse(match[0]);
       return null;
@@ -544,7 +554,7 @@
 
         try {
           const base64 = captureFrameAt(tapX, tapY);
-          const entry  = await classifyWithGemini(base64);
+          const entry  = await classifyWithOpenAI(base64);
           if (entry && entry.zh) {
             updatePanel(entry);
           } else {
@@ -552,10 +562,9 @@
             japaneseEl.textContent  = '認識できませんでした。もう一度タップしてください';
           }
         } catch (err) {
-          console.warn('Gemini error:', err);
+          console.warn('OpenAI error:', err);
           chineseChar.textContent = '—';
-          // APIキー不正の可能性を案内
-          const is4xx = err.message && err.message.includes('4');
+          const is4xx = err.message && /40[013]/.test(err.message);
           japaneseEl.textContent = is4xx
             ? 'APIキーエラー。長押しでキーをリセット'
             : 'エラーが発生しました。もう一度タップしてください';
@@ -570,8 +579,8 @@
       let pressTimer;
       cameraArea.addEventListener('touchstart', () => {
         pressTimer = setTimeout(() => {
-          localStorage.removeItem('gemini_api_key');
-          GEMINI_API_KEY = '';
+          localStorage.removeItem('openai_api_key');
+          OPENAI_API_KEY = '';
           if (promptForApiKey()) {
             japaneseEl.textContent = 'APIキーを更新しました';
           }
@@ -598,21 +607,21 @@
     // ===== APIキー入力プロンプト =====
     function promptForApiKey() {
       const key = window.prompt(
-        'Gemini APIキーを入力してください。\n（Google AI Studio: https://aistudio.google.com/app/apikey）\n\n一度入力すると端末に保存され、次回から不要です。'
+        'OpenAI APIキーを入力してください。\n（sk-proj-... で始まるキー）\n\n一度入力すると端末に保存され、次回から不要です。'
       );
       if (key && key.trim()) {
-        GEMINI_API_KEY = key.trim();
-        localStorage.setItem('gemini_api_key', GEMINI_API_KEY);
+        OPENAI_API_KEY = key.trim();
+        localStorage.setItem('openai_api_key', OPENAI_API_KEY);
         return true;
       }
       return false;
     }
 
-    // ===== 初期化（モデル読み込み不要） =====
+    // ===== 初期化 =====
     async function init() {
       try {
         // APIキー未設定なら入力を求める
-        if (!GEMINI_API_KEY) {
+        if (!OPENAI_API_KEY) {
           if (!promptForApiKey()) {
             showError('APIキーが必要です。\nページを再読み込みして入力してください。');
             return;
