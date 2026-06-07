@@ -2,34 +2,57 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>中国語カメラ学習</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design tokens ── */
+    :root {
+      --ink:        #06060b;
+      --panel:      rgba(8, 8, 14, 0.90);
+      --amber:      #e8a020;
+      --amber-dim:  rgba(232, 160, 32, 0.18);
+      --amber-glow: rgba(232, 160, 32, 0.28);
+      --white:      #f2ede6;
+      --sub:        #9a9490;
+      --muted:      #48453f;
+      --danger:     #c06060;
+    }
+
+    * {
+      margin: 0; padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      background: #000;
-      color: #fff;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: var(--ink);
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
       height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
 
-    /* カメラエリア */
+    /* ── Camera area ── */
     #camera-area {
       position: relative;
       flex: 1;
       overflow: hidden;
+      background: #000;
     }
+
     #video {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       object-fit: cover;
       display: block;
     }
+
     #canvas {
       position: absolute;
       top: 0; left: 0;
@@ -37,95 +60,267 @@
       pointer-events: none;
     }
 
-    /* 情報パネル（画面下部） */
-    #info-panel {
-      background: rgba(0, 0, 0, 0.88);
-      padding: 20px 16px;
+    /* ── Floating header ── */
+    #app-header {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 40px;
+      background: linear-gradient(to bottom, rgba(6,6,11,0.75) 0%, transparent 100%);
+    }
+
+    #app-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--sub);
+    }
+
+    /* Detection status dot */
+    #status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+    #status-dot.live {
+      background: var(--amber);
+      box-shadow: 0 0 10px var(--amber);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.45; }
+    }
+
+    /* ── Bottom panel ── */
+    #bottom-panel {
+      position: relative;
+      z-index: 10;
+      background: var(--panel);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      border-top: 1px solid rgba(232, 160, 32, 0.12);
+      padding: 28px 24px 40px;
+    }
+
+    /* Word area */
+    #word-area {
       text-align: center;
+      margin-bottom: 24px;
       min-height: 110px;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
-      gap: 4px;
-    }
-    #chinese-char {
-      font-size: 52px;
-      font-weight: bold;
-      line-height: 1;
-    }
-    #pinyin {
-      font-size: 22px;
-      color: #88ccff;
-      letter-spacing: 0.05em;
-    }
-    #japanese {
-      font-size: 16px;
-      color: #aaa;
+      gap: 6px;
     }
 
-    /* ローディングオーバーレイ */
-    #loading-overlay {
-      position: fixed;
+    #chinese-char {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 68px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--white);
+      letter-spacing: -0.01em;
+      transition: color 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #chinese-char.new-word {
+      color: var(--amber);
+      transform: scale(1.06);
+    }
+
+    #pinyin {
+      font-size: 19px;
+      font-weight: 300;
+      color: var(--amber);
+      letter-spacing: 0.14em;
+      min-height: 26px;
+    }
+
+    #japanese {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--sub);
+      letter-spacing: 0.06em;
+    }
+
+    /* Controls */
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* Repeat button */
+    #repeat-btn {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 1px solid rgba(232, 160, 32, 0.25);
+      background: var(--amber-dim);
+      color: var(--amber);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.18s ease;
+      flex-shrink: 0;
+    }
+    #repeat-btn:not(:disabled):active {
+      background: rgba(232, 160, 32, 0.32);
+      transform: scale(0.90) rotate(-20deg);
+    }
+    #repeat-btn:disabled {
+      opacity: 0.22;
+      cursor: not-allowed;
+    }
+
+    /* Speak button */
+    #speak-btn {
+      flex: 1;
+      height: 54px;
+      border-radius: 100px;
+      border: none;
+      background: var(--amber);
+      color: #07050a;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 4px 28px var(--amber-glow);
+      position: relative;
+      overflow: hidden;
+    }
+    #speak-btn::before {
+      content: '';
+      position: absolute;
       inset: 0;
-      background: #111;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 55%);
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    #speak-btn:not(:disabled):active {
+      transform: scale(0.95);
+      box-shadow: 0 2px 12px var(--amber-glow);
+    }
+    #speak-btn:disabled {
+      opacity: 0.28;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #speak-btn .btn-icon { font-size: 17px; }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0;
+      background: var(--ink);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 100;
-      gap: 16px;
+      z-index: 200;
+      gap: 24px;
     }
     #loading-overlay.hidden { display: none; }
-    #loading-icon { font-size: 56px; }
-    #loading-text { font-size: 16px; color: #ccc; }
 
-    /* エラーオーバーレイ */
+    .ring {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(232, 160, 32, 0.14);
+      border-top-color: var(--amber);
+      animation: spin 0.85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-label {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    /* ── Error overlay ── */
     #error-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.92);
+      position: fixed; inset: 0;
+      background: rgba(6, 6, 11, 0.96);
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 200;
-      padding: 24px;
+      z-index: 300;
+      padding: 36px;
     }
     #error-overlay.show { display: flex; }
-    #error-message {
-      font-size: 17px;
+
+    #error-box {
       text-align: center;
-      color: #ff8888;
-      line-height: 1.7;
+      max-width: 300px;
+    }
+    #error-icon {
+      font-size: 36px;
+      margin-bottom: 18px;
+      opacity: 0.7;
+    }
+    #error-message {
+      font-size: 15px;
+      color: var(--danger);
+      line-height: 1.8;
       white-space: pre-line;
     }
   </style>
 </head>
 <body>
 
-  <!-- ローディング画面 -->
+  <!-- Loading -->
   <div id="loading-overlay">
-    <div id="loading-icon">🈶</div>
-    <div id="loading-text">モデルを読み込み中...</div>
+    <div class="ring"></div>
+    <div id="loading-label">モデルを読み込み中...</div>
   </div>
 
-  <!-- エラー画面 -->
+  <!-- Error -->
   <div id="error-overlay">
-    <div id="error-message"></div>
+    <div id="error-box">
+      <div id="error-icon">⚠</div>
+      <div id="error-message"></div>
+    </div>
   </div>
 
-  <!-- カメラ映像エリア -->
+  <!-- Camera area -->
   <div id="camera-area">
+    <header id="app-header">
+      <span id="app-title">中国語カメラ学習</span>
+      <div id="status-dot"></div>
+    </header>
     <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
   </div>
 
-  <!-- 中国語表示パネル -->
-  <div id="info-panel">
-    <div id="chinese-char">—</div>
-    <div id="pinyin"></div>
-    <div id="japanese">カメラに物をかざしてください</div>
+  <!-- Bottom panel -->
+  <div id="bottom-panel">
+    <div id="word-area">
+      <div id="chinese-char">—</div>
+      <div id="pinyin"></div>
+      <div id="japanese">カメラに物をかざしてください</div>
+    </div>
+    <div id="controls">
+      <button id="repeat-btn" disabled title="もう一度聞く">↺</button>
+      <button id="speak-btn" disabled>
+        <span class="btn-icon">🔊</span>
+        <span>発音する</span>
+      </button>
+    </div>
   </div>
-
 
   <script>
     // ===== 辞書（COCO-SSD 80語） =====
@@ -212,25 +407,27 @@
       'toothbrush':     { zh: '牙刷',         pinyin: 'yá shuā',             ja: '歯ブラシ' },
     };
 
-    // ===== DOM要素 =====
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    // ===== DOM =====
+    const video          = document.getElementById('video');
+    const canvas         = document.getElementById('canvas');
+    const ctx            = canvas.getContext('2d');
     const loadingOverlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    const chineseChar = document.getElementById('chinese-char');
-    const pinyinEl = document.getElementById('pinyin');
-    const japaneseEl = document.getElementById('japanese');
+    const loadingLabel   = document.getElementById('loading-label');
+    const errorOverlay   = document.getElementById('error-overlay');
+    const errorMessage   = document.getElementById('error-message');
+    const chineseChar    = document.getElementById('chinese-char');
+    const pinyinEl       = document.getElementById('pinyin');
+    const japaneseEl     = document.getElementById('japanese');
+    const speakBtn       = document.getElementById('speak-btn');
+    const repeatBtn      = document.getElementById('repeat-btn');
+    const statusDot      = document.getElementById('status-dot');
 
-    // ===== 状態管理 =====
-    const COOLDOWN_MS = 5000;
-    const lastSpoken = {};
+    // ===== 状態 =====
     const ttsEnabled = 'speechSynthesis' in window;
+    let currentEntry    = null;  // 現在パネルに表示中のエントリ
+    let lastSpokenEntry = null;  // 最後に発音したエントリ
 
     // ===== エラー表示 =====
-    const errorOverlay = document.getElementById('error-overlay');
-    const errorMessage = document.getElementById('error-message');
-
     function showError(msg) {
       errorMessage.textContent = msg;
       errorOverlay.classList.add('show');
@@ -239,40 +436,91 @@
     // ===== 発音 =====
     function speak(text) {
       if (!ttsEnabled) return;
+      window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'zh-CN';
       utter.rate = 0.8;
-      window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     }
 
+    // ===== パネル更新（音声なし・表示のみ） =====
+    function updatePanel(entry) {
+      if (currentEntry && currentEntry.zh === entry.zh) return;
+      currentEntry = entry;
+
+      // 切り替えアニメーション
+      chineseChar.classList.remove('new-word');
+      void chineseChar.offsetWidth; // reflow
+      chineseChar.classList.add('new-word');
+      setTimeout(() => chineseChar.classList.remove('new-word'), 400);
+
+      chineseChar.textContent = entry.zh;
+      pinyinEl.textContent    = entry.pinyin;
+      japaneseEl.textContent  = entry.ja;
+      speakBtn.disabled = false;
+    }
+
+    // ===== 発音ボタン =====
+    speakBtn.addEventListener('click', () => {
+      if (!currentEntry) return;
+      speak(currentEntry.zh);
+      lastSpokenEntry = currentEntry;
+      repeatBtn.disabled = false;
+    });
+
+    // ===== リピートボタン =====
+    repeatBtn.addEventListener('click', () => {
+      if (!lastSpokenEntry) return;
+      speak(lastSpokenEntry.zh);
+    });
+
     // ===== バウンディングボックス描画 =====
     function drawBoxes(predictions) {
-      canvas.width = video.offsetWidth;
+      canvas.width  = video.offsetWidth;
       canvas.height = video.offsetHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const scaleX = canvas.width / video.videoWidth;
+
+      const scaleX = canvas.width  / video.videoWidth;
       const scaleY = canvas.height / video.videoHeight;
 
       predictions.forEach(pred => {
         const [x, y, w, h] = pred.bbox;
-        ctx.strokeStyle = '#00ff88';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
-        ctx.fillStyle = '#00ff88';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.fillText(pred.class, x * scaleX + 4, y * scaleY + 16);
+        const sx = x * scaleX, sy = y * scaleY;
+        const sw = w * scaleX, sh = h * scaleY;
+
+        ctx.strokeStyle = 'rgba(232, 160, 32, 0.85)';
+        ctx.lineWidth   = 1.5;
+        ctx.strokeRect(sx, sy, sw, sh);
+
+        ctx.font = '600 12px Outfit, sans-serif';
+        const tw = ctx.measureText(pred.class).width;
+        ctx.fillStyle = 'rgba(232, 160, 32, 0.88)';
+        ctx.fillRect(sx, sy - 20, tw + 12, 20);
+        ctx.fillStyle = '#07050a';
+        ctx.fillText(pred.class, sx + 6, sy - 5);
       });
     }
 
-    // ===== 情報パネル更新 =====
-    function updateInfoPanel(entry) {
-      chineseChar.textContent = entry.zh;
-      pinyinEl.textContent = entry.pinyin;
-      japaneseEl.textContent = entry.ja;
+    // ===== 認識ループ（表示のみ・自動発音なし） =====
+    function startDetectionLoop(model) {
+      setInterval(async () => {
+        if (video.readyState < 2) return;
+
+        const predictions = await model.detect(video);
+        drawBoxes(predictions);
+
+        if (predictions.length > 0) {
+          statusDot.classList.add('live');
+          const best  = predictions.reduce((a, b) => a.score > b.score ? a : b);
+          const entry = dictionary[best.class];
+          if (entry) updatePanel(entry);
+        } else {
+          statusDot.classList.remove('live');
+        }
+      }, 500);
     }
 
-    // ===== カメラ起動（エラー処理あり） =====
+    // ===== カメラ起動 =====
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -286,33 +534,12 @@
       }
     }
 
-    // ===== 認識ループ（TTS + クールダウン込み） =====
-    function startDetectionLoop(model) {
-      setInterval(async () => {
-        if (video.readyState < 2) return;
-        const predictions = await model.detect(video);
-        drawBoxes(predictions);
-        if (predictions.length === 0) return;
-
-        const best = predictions.reduce((a, b) => a.score > b.score ? a : b);
-        const entry = dictionary[best.class];
-        if (!entry) return;
-
-        const now = Date.now();
-        if (lastSpoken[best.class] && (now - lastSpoken[best.class]) < COOLDOWN_MS) return;
-
-        lastSpoken[best.class] = now;
-        updateInfoPanel(entry);
-        speak(entry.zh);
-      }, 500);
-    }
-
-    // ===== 初期化（エラー処理あり） =====
+    // ===== 初期化 =====
     async function init() {
       try {
-        loadingText.textContent = 'モデルを読み込み中...';
+        loadingLabel.textContent = 'モデルを読み込み中...';
         const model = await cocoSsd.load();
-        loadingText.textContent = 'カメラを起動中...';
+        loadingLabel.textContent = 'カメラを起動中...';
         await startCamera();
         loadingOverlay.classList.add('hidden');
         startDetectionLoop(model);
