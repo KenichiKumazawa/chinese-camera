@@ -564,10 +564,8 @@
         } catch (err) {
           console.warn('OpenAI error:', err);
           chineseChar.textContent = '—';
-          const is4xx = err.message && /40[013]/.test(err.message);
-          japaneseEl.textContent = is4xx
-            ? 'APIキーエラー。長押しでキーをリセット'
-            : 'エラーが発生しました。もう一度タップしてください';
+          // エラー内容を画面に表示（デバッグ用）
+          japaneseEl.textContent = String(err.message || err).slice(0, 80);
         } finally {
           isRequesting = false;
           scanOverlay.classList.remove('active');
